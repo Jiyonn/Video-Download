@@ -1,0 +1,39 @@
+name: Cleanup Old Downloads
+
+on:
+  schedule:
+    # Run every day at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Clean old downloads (24+ hours)
+      run: |
+        echo "Cleaning files older than 24 hours..."
+        find downloads/ -type f -mtime +1 -delete || true
+        
+        # Remove empty directories
+        find downloads/ -type d -empty -delete || true
+        
+        # Ensure downloads directory exists
+        mkdir -p downloads
+        
+        echo "Remaining files:"
+        ls -la downloads/ || echo "Downloads directory is empty"
+        
+    - name: Commit cleanup changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action Cleanup"
+        git add downloads/
+        git diff --staged --quiet || git commit -m "Cleanup old downloads: $(date)"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
