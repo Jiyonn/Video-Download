@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Downloader - GitHub Workflow</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎥 Video Downloader</h1>
+            <p>Download videos from YouTube and TikTok using GitHub Workflows</p>
+        </header>
+
+        <main>
+            <form id="downloadForm" class="download-form">
+                <div class="form-group">
+                    <label for="videoUrl">Video URL:</label>
+                    <input 
+                        type="url" 
+                        id="videoUrl" 
+                        placeholder="https://www.youtube.com/watch?v=... or https://www.tiktok.com/@..."
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="githubToken">GitHub Token:</label>
+                    <input 
+                        type="password" 
+                        id="githubToken" 
+                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        required
+                    >
+                    <small>Need a token? <a href="https://github.com/settings/tokens" target="_blank">Create one here</a></small>
+                </div>
+
+                <div class="form-group">
+                    <label for="downloadType">Download Type:</label>
+                    <select id="downloadType">
+                        <option value="video">Video (MP4)</option>
+                        <option value="audio">Audio Only (MP3)</option>
+                        <option value="best">Best Quality</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="repoOwner">Repository Owner:</label>
+                    <input 
+                        type="text" 
+                        id="repoOwner" 
+                        placeholder="your-username"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="repoName">Repository Name:</label>
+                    <input 
+                        type="text" 
+                        id="repoName" 
+                        placeholder="video-downloader"
+                        required
+                    >
+                </div>
+
+                <button type="submit" id="downloadBtn">
+                    <span class="btn-text">Start Download</span>
+                    <span class="loading" style="display: none;">Processing...</span>
+                </button>
+            </form>
+
+            <div id="status" class="status-container" style="display: none;">
+                <h3>Download Status</h3>
+                <div id="statusMessage"></div>
+                <div id="workflowLink" style="display: none;"></div>
+            </div>
+
+            <div id="downloads" class="downloads-container">
+                <h3>Recent Downloads</h3>
+                <div id="downloadsList">
+                    <p class="no-downloads">No downloads yet</p>
+                </div>
+                <button id="refreshBtn" onclick="loadDownloads()">Refresh Downloads</button>
+            </div>
+        </main>
+
+        <footer>
+            <p>Powered by GitHub Actions & yt-dlp</p>
+            <p><strong>Note:</strong> Downloads are temporary and cleaned up after 24 hours</p>
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
