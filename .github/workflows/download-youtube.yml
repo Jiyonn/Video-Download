@@ -46,7 +46,7 @@ jobs:
         git commit -m "Add downloaded video: $(date)"
         git push
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.DEV_TOKEN }}
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
