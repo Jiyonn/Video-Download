@@ -28,16 +28,35 @@ def get_download_options(download_type, output_path):
     
     base_options = {
         'outtmpl': f'{output_path}/%(title)s.%(ext)s',
-        'ignoreerrors': False,  # Changed to False to see actual errors
+        'ignoreerrors': False,
         'no_warnings': False,
         'extractaudio': False,
         'audioformat': 'mp3',
         'audioquality': '192',
-        'verbose': True,  # Enable verbose logging
-        # Add user agent to avoid blocking
+        'verbose': True,
+        # Anti-bot detection measures
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         },
+        # Try to avoid bot detection
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],
+                'player_skip': ['webpage'],
+                'skip': ['hls', 'dash'],
+            }
+        },
+        # Add some delays to appear more human-like
+        'sleep_interval': 1,
+        'max_sleep_interval': 3,
+        # Try different extraction methods
+        'extract_flat': False,
     }
     
     if download_type == 'audio':
@@ -115,28 +134,76 @@ def download_youtube_video():
             print("Attempting to extract video information...")
             print(f"Using yt-dlp version: {yt_dlp.version.__version__}")
             
-            # Try with different extraction methods
-            try:
-                info = ydl.extract_info(video_url, download=False)
-            except Exception as extract_error:
-                print(f"First extraction attempt failed: {extract_error}")
-                
-                # Try with different options
-                print("Trying with simplified options...")
-                simple_ydl_opts = {
-                    'quiet': False,
-                    'no_warnings': False,
-                    'verbose': True,
+            # Try with different extraction methods for bot detection
+            extraction_attempts = [
+                # Attempt 1: Android client (often bypasses bot detection)
+                {
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['android'],
+                            'skip': ['webpage'],
+                        }
+                    },
+                    'http_headers': {
+                        'User-Agent': 'com.google.android.youtube/17.36.4 (Linux; U; Android 12; GB) gzip',
+                        'X-YouTube-Client-Name': '3',
+                        'X-YouTube-Client-Version': '17.36.4',
+                    }
+                },
+                # Attempt 2: iOS client
+                {
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['ios'],
+                            'skip': ['webpage'],
+                        }
+                    },
+                    'http_headers': {
+                        'User-Agent': 'com.google.ios.youtube/17.36.4 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)',
+                        'X-YouTube-Client-Name': '5',
+                        'X-YouTube-Client-Version': '17.36.4',
+                    }
+                },
+                # Attempt 3: Web client with different user agent
+                {
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    }
                 }
-                
-                with yt_dlp.YoutubeDL(simple_ydl_opts) as simple_ydl:
-                    info = simple_ydl.extract_info(video_url, download=False)
+            ]
+            
+            info = None
+            successful_method = None
+            
+            for i, attempt_opts in enumerate(extraction_attempts, 1):
+                try:
+                    print(f"Extraction attempt {i}...")
+                    
+                    # Merge attempt options with base options
+                    temp_opts = ydl_opts.copy()
+                    if 'extractor_args' in attempt_opts:
+                        temp_opts['extractor_args'] = attempt_opts['extractor_args']
+                    if 'http_headers' in attempt_opts:
+                        temp_opts['http_headers'].update(attempt_opts['http_headers'])
+                    
+                    with yt_dlp.YoutubeDL(temp_opts) as temp_ydl:
+                        info = temp_ydl.extract_info(video_url, download=False)
+                        successful_method = i
+                        break
+                        
+                except Exception as extract_error:
+                    print(f"Attempt {i} failed: {extract_error}")
+                    if i < len(extraction_attempts):
+                        print("Trying next method...")
+                        continue
+                    else:
+                        raise extract_error
             
             # Check if info extraction was successful
             if info is None:
-                raise Exception("Failed to extract video information. The video might be private, deleted, or the URL is invalid.")
+                raise Exception("All extraction methods failed. YouTube may be blocking this IP or the video is unavailable.")
             
-            print("Video information extracted successfully!")
+            print(f"Video information extracted successfully using method {successful_method}!")
             
             # Safely get video information with defaults
             title = info.get('title', 'Unknown_Video')
@@ -155,9 +222,20 @@ def download_youtube_video():
             if availability in ['private', 'premium_only', 'subscriber_only']:
                 raise Exception(f"Video is {availability} and cannot be downloaded")
             
-            # Download the video with the original options
+            # Download the video using the successful method
             print("Starting download...")
-            ydl.download([video_url])
+            if successful_method <= len(extraction_attempts):
+                download_opts = ydl_opts.copy()
+                attempt_opts = extraction_attempts[successful_method - 1]
+                if 'extractor_args' in attempt_opts:
+                    download_opts['extractor_args'] = attempt_opts['extractor_args']
+                if 'http_headers' in attempt_opts:
+                    download_opts['http_headers'].update(attempt_opts['http_headers'])
+                
+                with yt_dlp.YoutubeDL(download_opts) as download_ydl:
+                    download_ydl.download([video_url])
+            else:
+                ydl.download([video_url])
             
             # Create metadata file
             metadata = {
