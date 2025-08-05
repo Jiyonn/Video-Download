@@ -36,4 +36,4 @@ jobs:
         git diff --staged --quiet || git commit -m "Cleanup old downloads: $(date)"
         git push
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.DEV_TOKEN }}
