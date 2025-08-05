@@ -35,8 +35,8 @@ jobs:
       run: |
         echo "Debug: VIDEO_URL = $VIDEO_URL"
         echo "Debug: DOWNLOAD_TYPE = $DOWNLOAD_TYPE"
-        echo "Testing yt-dlp directly:"
-        yt-dlp --simulate "$VIDEO_URL" || echo "Direct yt-dlp test failed"
+        echo "Testing direct yt-dlp with Android client:"
+        yt-dlp --simulate --extractor-args "youtube:player_client=android" "$VIDEO_URL" || echo "Android client test failed"
         echo "Running Python script:"
         python scripts/youtube_downloader.py
         
