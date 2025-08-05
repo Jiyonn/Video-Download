@@ -28,11 +28,16 @@ def get_download_options(download_type, output_path):
     
     base_options = {
         'outtmpl': f'{output_path}/%(title)s.%(ext)s',
-        'ignoreerrors': True,
+        'ignoreerrors': False,  # Changed to False to see actual errors
         'no_warnings': False,
         'extractaudio': False,
         'audioformat': 'mp3',
         'audioquality': '192',
+        'verbose': True,  # Enable verbose logging
+        # Add user agent to avoid blocking
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
     }
     
     if download_type == 'audio':
@@ -106,30 +111,51 @@ def download_youtube_video():
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Extract info first
-            print("Extracting video information...")
-            info = ydl.extract_info(video_url, download=False)
+            # First, let's try to get basic info without downloading
+            print("Attempting to extract video information...")
+            print(f"Using yt-dlp version: {yt_dlp.version.__version__}")
+            
+            # Try with different extraction methods
+            try:
+                info = ydl.extract_info(video_url, download=False)
+            except Exception as extract_error:
+                print(f"First extraction attempt failed: {extract_error}")
+                
+                # Try with different options
+                print("Trying with simplified options...")
+                simple_ydl_opts = {
+                    'quiet': False,
+                    'no_warnings': False,
+                    'verbose': True,
+                }
+                
+                with yt_dlp.YoutubeDL(simple_ydl_opts) as simple_ydl:
+                    info = simple_ydl.extract_info(video_url, download=False)
             
             # Check if info extraction was successful
             if info is None:
                 raise Exception("Failed to extract video information. The video might be private, deleted, or the URL is invalid.")
+            
+            print("Video information extracted successfully!")
             
             # Safely get video information with defaults
             title = info.get('title', 'Unknown_Video')
             duration = info.get('duration', 0)
             uploader = info.get('uploader', 'Unknown')
             video_id = info.get('id', 'unknown_id')
+            availability = info.get('availability', 'unknown')
             
             print(f"Title: {title}")
             print(f"Duration: {duration} seconds")
             print(f"Uploader: {uploader}")
             print(f"Video ID: {video_id}")
+            print(f"Availability: {availability}")
             
             # Check if video is available
-            if info.get('availability') == 'private':
-                raise Exception("Video is private and cannot be downloaded")
+            if availability in ['private', 'premium_only', 'subscriber_only']:
+                raise Exception(f"Video is {availability} and cannot be downloaded")
             
-            # Download the video
+            # Download the video with the original options
             print("Starting download...")
             ydl.download([video_url])
             
