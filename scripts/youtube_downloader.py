@@ -53,6 +53,18 @@ def get_download_options(download_type, output_path):
     
     return base_options
 
+def is_valid_youtube_url(url):
+    """Check if the URL is a valid YouTube URL"""
+    youtube_patterns = [
+        r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/',
+        r'(https?://)?(www\.)?youtu\.be/',
+    ]
+    
+    for pattern in youtube_patterns:
+        if re.match(pattern, url):
+            return True
+    return False
+
 def download_youtube_video():
     """Main function to download YouTube video"""
     
@@ -63,6 +75,11 @@ def download_youtube_video():
     
     if not video_url:
         print("Error: VIDEO_URL environment variable not set")
+        sys.exit(1)
+    
+    # Basic URL validation
+    if not is_valid_youtube_url(video_url):
+        print(f"Error: Invalid YouTube URL: {video_url}")
         sys.exit(1)
     
     print(f"Starting download for: {video_url}")
@@ -93,13 +110,24 @@ def download_youtube_video():
             print("Extracting video information...")
             info = ydl.extract_info(video_url, download=False)
             
-            title = info.get('title', 'Unknown')
+            # Check if info extraction was successful
+            if info is None:
+                raise Exception("Failed to extract video information. The video might be private, deleted, or the URL is invalid.")
+            
+            # Safely get video information with defaults
+            title = info.get('title', 'Unknown_Video')
             duration = info.get('duration', 0)
             uploader = info.get('uploader', 'Unknown')
+            video_id = info.get('id', 'unknown_id')
             
             print(f"Title: {title}")
             print(f"Duration: {duration} seconds")
             print(f"Uploader: {uploader}")
+            print(f"Video ID: {video_id}")
+            
+            # Check if video is available
+            if info.get('availability') == 'private':
+                raise Exception("Video is private and cannot be downloaded")
             
             # Download the video
             print("Starting download...")
@@ -111,6 +139,7 @@ def download_youtube_video():
                 'title': title,
                 'duration': duration,
                 'uploader': uploader,
+                'video_id': video_id,
                 'download_type': download_type,
                 'timestamp': timestamp,
                 'status': 'completed'
@@ -122,23 +151,31 @@ def download_youtube_video():
             
             print("Download completed successfully!")
             
-    except Exception as e:
-        print(f"Error downloading video: {str(e)}")
-        
-        # Create error metadata file
-        error_metadata = {
-            'url': video_url,
-            'download_type': download_type,
-            'timestamp': timestamp,
-            'status': 'failed',
-            'error': str(e)
-        }
-        
-        error_file = downloads_dir / f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(error_file, 'w', encoding='utf-8') as f:
-            json.dump(error_metadata, f, indent=2, ensure_ascii=False)
-        
+    except yt_dlp.utils.DownloadError as e:
+        error_msg = f"yt-dlp download error: {str(e)}"
+        print(f"Error: {error_msg}")
+        create_error_file(downloads_dir, video_url, download_type, timestamp, error_msg)
         sys.exit(1)
+        
+    except Exception as e:
+        error_msg = f"General error: {str(e)}"
+        print(f"Error downloading video: {error_msg}")
+        create_error_file(downloads_dir, video_url, download_type, timestamp, error_msg)
+        sys.exit(1)
+
+def create_error_file(downloads_dir, video_url, download_type, timestamp, error_msg):
+    """Create an error metadata file"""
+    error_metadata = {
+        'url': video_url,
+        'download_type': download_type,
+        'timestamp': timestamp,
+        'status': 'failed',
+        'error': error_msg
+    }
+    
+    error_file = downloads_dir / f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(error_file, 'w', encoding='utf-8') as f:
+        json.dump(error_metadata, f, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
     download_youtube_video()
